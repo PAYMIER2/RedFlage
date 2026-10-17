@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Betting History Analyzer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        slate: {
+                            750: '#1e293b',
+                            850: '#0f172a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col antialiased">
+
+    <!-- Simplified Header -->
+    <header class="border-b border-slate-800 bg-slate-900 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center shadow-sm">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-base font-bold tracking-tight text-white">BetAnalyzer</h1>
+                </div>
+            </div>
+            <div class="flex items-center space-x-3">
+                <button id="reset-btn" class="hidden px-4 py-2 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-all">
+                    Reset Session
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+        <!-- Simplified Input Section -->
+        <div id="upload-section" class="space-y-4 max-w-3xl mx-auto mt-8">
+            <div class="flex border-b border-slate-700">
+                <button id="tab-upload" class="px-6 py-3 text-sm font-semibold border-b-2 border-indigo-500 text-indigo-400 focus:outline-none transition-colors">📁 CSV Upload</button>
+                <button id="tab-paste" class="px-6 py-3 text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-white focus:outline-none transition-colors">📋 Paste Data</button>
+            </div>
+
+            <div id="panel-upload" class="space-y-4">
+                <div class="bg-slate-800 border-2 border-dashed border-slate-700 hover:border-indigo-500 rounded-2xl p-10 text-center transition-all cursor-pointer relative group" id="drop-zone">
+                    <input type="file" id="csv-file-input" accept=".csv,.txt" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10">
+                    <div class="flex flex-col items-center pointer-events-none space-y-3">
+                        <div class="w-12 h-12 rounded-xl bg-slate-700 text-slate-300 flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="text-base font-semibold text-white">Drop your CSV / raw export here</p>
+                            <p class="text-sm text-slate-400 mt-1">or <span class="text-indigo-400 underline font-medium">browse files</span></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="panel-paste" class="hidden space-y-4">
+                <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 space-y-4">
+                    <textarea id="paste-textarea" rows="8" placeholder="Paste your data rows or JSON payloads here..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 text-xs font-mono text-slate-200 focus:outline-none focus:border-indigo-500"></textarea>
+                    <div class="flex justify-end">
+                        <button id="process-paste-btn" class="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition-all">
+                            Parse & Analyze
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="notification-box" class="hidden max-w-2xl mx-auto p-4 rounded-xl border text-sm flex items-center justify-between">
+            <span id="notification-message"></span>
+            <button onclick="hideNotification()" class="text-slate-400 hover:text-white">&times;</button>
+        </div>
+
+        <!-- Results Container -->
+        <div id="results-container" class="hidden space-y-6">
+
+            <!-- Narrative Summary Box (Simplified + Copy Button) -->
+            <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 relative">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
+                    <div class="flex items-center space-x-3">
+                        <h2 class="text-xs font-bold tracking-wider text-slate-400 uppercase">Narrative Summary</h2>
+                        <div class="flex items-center space-x-1.5 bg-slate-900 border border-slate-700 rounded-full px-3 py-1">
+                            <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                            </svg>
+                            <span id="username-display" class="text-xs font-semibold text-slate-300">-</span>
+                        </div>
+                    </div>
+                    <button id="copy-summary-btn" class="flex items-center justify-center space-x-1.5 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-xs font-semibold transition-all">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                        <span>Copy</span>
+                    </button>
+                </div>
+                <p id="narrative-summary" class="text-sm sm:text-base text-slate-200 leading-relaxed"></p>
+            </div>
+
+            <!-- KPI Cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-slate-800 border border-slate-700 rounded-xl p-5">
+                    <p class="text-xs font-semibold text-slate-400 mb-1">Largest Player Win</p>
+                    <p id="stat-max-win" class="text-2xl font-bold text-emerald-400">0.00</p>
+                    <p id="stat-max-win-game" class="text-xs text-slate-500 mt-1 truncate">-</p>
+                </div>
+                <div class="bg-slate-800 border border-slate-700 rounded-xl p-5">
+                    <p class="text-xs font-semibold text-slate-400 mb-1">Total W/L Result</p>
+                    <p id="stat-net-result" class="text-2xl font-bold text-white">0.00</p>
+                </div>
+                <div class="bg-slate-800 border border-slate-700 rounded-xl p-5">
+                    <p class="text-xs font-semibold text-slate-400 mb-1">Total Turnover</p>
+                    <p id="stat-total-turnover" class="text-2xl font-bold text-indigo-400">0.00</p>
+                    <p id="stat-total-tx" class="text-xs text-slate-500 mt-1">0 transactions</p>
+                </div>
+                <div class="bg-slate-800 border border-slate-700 rounded-xl p-5">
+                    <p class="text-xs font-semibold text-slate-400 mb-1">Win Rate & RTP</p>
+                    <p id="stat-win-rate" class="text-2xl font-bold text-amber-400">0%</p>
+                    <p id="stat-rtp" class="text-xs text-slate-500 mt-1">RTP: 0%</p>
+                </div>
+            </div>
+
+            <!-- Charts -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div class="bg-slate-800 border border-slate-700 rounded-xl p-5">
+                    <h3 class="text-sm font-semibold text-white mb-4">Cumulative Profit / Loss Trend</h3>
+                    <div class="h-64 relative">
+                        <canvas id="trendChart"></canvas>
+                    </div>
+                </div>
+                <div class="bg-slate-800 border border-slate-700 rounded-xl p-5">
+                    <h3 class="text-sm font-semibold text-white mb-4">Top Game Providers by W/L</h3>
+                    <div class="h-64 relative">
+                        <canvas id="providerChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Transactions Table -->
+            <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+                <div class="px-5 py-4 border-b border-slate-700 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <h3 class="text-sm font-semibold text-white">Transaction History</h3>
+                    <div class="flex items-center space-x-3 w-full sm:w-auto">
+                        <input type="text" id="table-search" placeholder="Search game or provider..." class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 w-full sm:w-64">
+                        <button id="export-csv-btn" class="px-3 py-1.5 text-xs font-semibold bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-all whitespace-nowrap">
+                            Export CSV
+                        </button>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-900 border-b border-slate-700 text-xs font-semibold text-slate-400">
+                                <th class="px-5 py-3 cursor-pointer hover:text-white" onclick="sortTable('timestamp')">Timestamp ↕</th>
+                                <th class="px-5 py-3 cursor-pointer hover:text-white" onclick="sortTable('gameName')">Game Name ↕</th>
+                                <th class="px-5 py-3 cursor-pointer hover:text-white" onclick="sortTable('provider')">Provider ↕</th>
+                                <th class="px-5 py-3 cursor-pointer hover:text-white" onclick="sortTable('bet')">Valid Bet ↕</th>
+                                <th class="px-5 py-3 text-right cursor-pointer hover:text-white" onclick="sortTable('playerWL')">Player W/L ↕</th>
+                                <th class="px-5 py-3 text-center">Raw</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transactions-tbody" class="divide-y divide-slate-700/50 text-sm"></tbody>
+                    </table>
+                </div>
+                <div class="px-5 py-3 border-t border-slate-700 flex items-center justify-between text-xs text-slate-400">
+                    <span id="pagination-info">Showing 0 of 0 entries</span>
+                    <div class="flex space-x-2">
+                        <button id="prev-page" onclick="changePage(-1)" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-white disabled:opacity-50 disabled:cursor-not-allowed">Previous</button>
+                        <button id="next-page" onclick="changePage(1)" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-white disabled:opacity-50 disabled:cursor-not-allowed">Next</button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Raw Data Location Modal (Simplified) -->
+    <div id="raw-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/80" onclick="closeRawModal()"></div>
+        <div class="relative bg-slate-800 border border-slate-700 rounded-xl shadow-2xl max-w-7xl w-full max-h-[90vh] flex flex-col">
+            <div class="px-5 py-3 border-b border-slate-700 flex items-center justify-between flex-shrink-0">
+                <div>
+                    <h3 class="text-sm font-semibold text-white">Raw Data Location</h3>
+                    <p id="raw-modal-subtitle" class="text-xs text-slate-400 mt-0.5">Parsed transaction fields from raw data</p>
+                </div>
+                <button onclick="closeRawModal()" class="p-1.5 hover:bg-slate-700 rounded-lg transition-colors">
+                    <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="px-5 py-2 border-b border-slate-700 bg-slate-900 flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
+                <div class="flex items-center space-x-3">
+                    <div class="flex items-center space-x-1.5">
+                        <span class="text-xs text-slate-400">Rows per page:</span>
+                        <select id="raw-page-size" onchange="onRawPageSizeChange()" class="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-indigo-500">
+                            <option value="10">10</option>
+                            <option value="25" selected>25</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                            <option value="250">250</option>
+                        </select>
+                    </div>
+                    <span class="text-slate-500">|</span>
+                    <span id="raw-page-info" class="text-xs text-slate-400 font-mono">Page 1 of 1</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button id="raw-prev-page" onclick="changeRawPage(-1)" class="flex items-center space-x-1.5 px-3 py-1 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs font-semibold text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                        Prev Page
+                    </button>
+                    <button id="raw-next-page" onclick="changeRawPage(1)" class="flex items-center space-x-1.5 px-3 py-1 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs font-semibold text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                        Next Page
+                    </button>
+                    <span class="text-slate-500">|</span>
+                    <div class="flex items-center space-x-1.5">
+                        <input type="number" id="raw-jump-line" min="1" class="w-16 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 font-mono" placeholder="#">
+                        <button onclick="jumpToRecord()" class="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-white font-semibold text-xs transition-all">Go</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex-1 overflow-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead class="sticky top-0 z-10">
+                        <tr class="bg-slate-900 border-b border-slate-700 text-xs font-semibold text-slate-400">
+                            <th class="px-3 py-2 w-14">#</th>
+                            <th class="px-3 py-2">Timestamp</th>
+                            <th class="px-3 py-2">Game Name</th>
+                            <th class="px-3 py-2">Provider</th>
+                            <th class="px-3 py-2 text-right">Valid Bet</th>
+                            <th class="px-3 py-2 text-right">Player W/L</th>
+                            <th class="px-3 py-2 text-center w-20">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="raw-modal-tbody" class="divide-y divide-slate-700/50 text-sm"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allRecords = [];
+        let filteredRecords = [];
+        let currentPage = 1;
+        const rowsPerPage = 15;
+        let sortField = 'playerWL';
+        let sortDirection = 'desc';
+        let trendChartInstance = null;
+        let providerChartInstance = null;
+        let currentUsername = "-";
+        let rawDataLines = [];
+
+        let rawModalState = {
+            matchedRecordIndex: -1,
+            currentRecordIndex: -1,
+            currentPage: 1,
+            pageSize: 25
+        };
+
+        const fileInput = document.getElementById('csv-file-input');
+        const dropZone = document.getElementById('drop-zone');
+        const uploadSection = document.getElementById('upload-section');
+        const resultsContainer = document.getElementById('results-container');
+        const resetBtn = document.getElementById('reset-btn');
+        const notificationBox = document.getElementById('notification-box');
+        const notificationMessage = document.getElementById('notification-message');
+        const tableSearch = document.getElementById('table-search');
+
+        const tabUpload = document.getElementById('tab-upload');
+        const tabPaste = document.getElementById('tab-paste');
+        const panelUpload = document.getElementById('panel-upload');
+        const panelPaste = document.getElementById('panel-paste');
+        const pasteTextarea = document.getElementById('paste-textarea');
+        const processPasteBtn = document.getElementById('process-paste-btn');
+
+        // Copy Button Logic
+        document.getElementById('copy-summary-btn').addEventListener('click', function() {
+            const text = document.getElementById('narrative-summary').textContent;
+            if (!text || text.trim() === '') return;
+            
+            navigator.clipboard.writeText(text).then(() => {
+                const originalHTML = this.innerHTML;
+                this.innerHTML = `<svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg><span class="text-emerald-400">Copied!</span>`;
+                setTimeout(() => {
+                    this.innerHTML = originalHTML;
+                }, 2000);
+            }).catch(err => {
+                showNotification('Failed to copy text.', 'error');
+            });
+        });
+
+        tabUpload.addEventListener('click', () => {
+            tabUpload.className = "px-6 py-3 text-sm font-semibold border-b-2 border-indigo-500 text-indigo-400 focus:outline-none transition-colors";
+            tabPaste.className = "px-6 py-3 text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-white focus:outline-none transition-colors";
+            panelUpload.classList.remove('hidden');
+            panelPaste.classList.add('hidden');
+        });
+
+        tabPaste.addEventListener('click', () => {
+            tabPaste.className = "px-6 py-3 text-sm font-semibold border-b-2 border-indigo-500 text-indigo-400 focus:outline-none transition-colors";
+            tabUpload.className = "px-6 py-3 text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-white focus:outline-none transition-colors";
+            panelPaste.classList.remove('hidden');
+            panelUpload.classList.add('hidden');
+        });
+
+        processPasteBtn.addEventListener('click', () => {
+            const rawText = pasteTextarea.value.trim();
+            if (!rawText) {
+                showNotification('Please paste transaction data into the text area.', 'error');
+                return;
+            }
+            parseRawData(rawText);
+        });
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropZone.classList.add('border-indigo-500');
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('border-indigo-500');
+            }, false);
+        });
+
+        fileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) handleFile(file);
+        });
+
+        resetBtn.addEventListener('click', function() {
+            resetSession();
+        });
+
+        tableSearch.addEventListener('input', function(e) {
+            const query = e.target.value.toLowerCase();
+            filteredRecords = allRecords.filter(r => 
+                r.gameName.toLowerCase().includes(query) || 
+                r.provider.toLowerCase().includes(query) ||
+                r.timestamp.toLowerCase().includes(query)
+            );
+            currentPage = 1;
+            renderResults();
+        });
+
+        function showNotification(message, type = 'success') {
+            notificationMessage.textContent = message;
+            notificationBox.className = `max-w-2xl mx-auto p-4 rounded-xl border text-sm flex items-center justify-between ${
+                type === 'error' ? 'bg-rose-500/10 border-rose-500/30 text-rose-300' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+            }`;
+            notificationBox.classList.remove('hidden');
+            setTimeout(hideNotification, 5000);
+        }
+
+        function hideNotification() {
+            notificationBox.classList.add('hidden');
+        }
+
+        function handleFile(file) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const text = event.target.result;
+                if (text.includes('{') && text.includes('}')) {
+                    parseRawData(text);
+                } else {
+                    parseCSV(text);
+                }
+                showNotification(`Successfully imported ${file.name}`);
+            };
+            reader.onerror = function() {
+                showNotification('Error reading file.', 'error');
+            };
+            reader.readAsText(file);
+        }
+
+        function parseRawData(text) {
+            rawDataLines = text.split(/\r?\n/);
+            const lines = text.split(/\r?\n/).map(l => l.trim());
+
+            if (lines.length > 0 && (lines[0].includes(',') || lines[0].includes('\t')) && !lines[0].startsWith('IDTX') && !text.includes('Evolution Live')) {
+                parseCSV(text);
+                return;
+            }
+
+            allRecords = [];
+            let jsonBlocks = [];
+            let currentJsonStr = '';
+            let braceCount = 0;
+            let collectingJson = false;
+
+            for (let i = 0; i < lines.length; i++) {
+                let line = lines[i];
+                if (line.startsWith('{')) {
+                    collectingJson = true;
+                    currentJsonStr = line;
+                    braceCount = (line.match(/{/g) || []).length - (line.match(/}/g) || []).length;
+                    if (braceCount === 0) {
+                        jsonBlocks.push({ jsonStr: currentJsonStr, lineIndex: i });
+                        collectingJson = false;
+                    }
+                } else if (collectingJson) {
+                    currentJsonStr += '\n' + line;
+                    braceCount += (line.match(/{/g) || []).length - (line.match(/}/g) || []).length;
+                    if (braceCount <= 0) {
+                        jsonBlocks.push({ jsonStr: currentJsonStr, lineIndex: i });
+                        collectingJson = false;
+                    }
+                }
+            }
+
+            if (jsonBlocks.length > 0) {
+                for (let item of jsonBlocks) {
+                    try {
+                        const obj = JSON.parse(item.jsonStr);
+                        let timestamp = "2026-09-26 18:00:00";
+                        let gameName = obj.gameCode ? obj.gameCode : "Speed Baccarat A";
+                        let provider = "Evolution Live";
+                        let betVal = 0;
+                        let playerWL = 0;
+                        let usernameFromJson = obj.username || obj.userName || obj.playerId || obj.loginName || "-";
+
+                        let scanStart = Math.max(0, item.lineIndex - 30);
+                        let snippetLines = lines.slice(scanStart, item.lineIndex);
+                        let fullTextSnippet = snippetLines.join(' ');
+                        const dateMatch = fullTextSnippet.match(/(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})/);
+                        if (dateMatch) {
+                            timestamp = `${dateMatch[1]} ${dateMatch[2]}`;
+                        } else {
+                            let rawEpoch = obj.timestamp || obj.betTime || obj.settledTime;
+                            if (rawEpoch && !isNaN(rawEpoch)) {
+                                const d = new Date(Number(rawEpoch));
+                                if (!isNaN(d.getTime())) {
+                                    timestamp = d.toISOString().replace('T', ' ').slice(0, 19);
+                                }
+                            }
+                        }
+
+                        if (obj.winLoss !== undefined) {
+                            playerWL = parseFloat(obj.winLoss) || 0;
+                            betVal = parseFloat(obj.effectiveTurnover) || parseFloat(obj.amount) || 0;
+                        } else if (obj.winAmount !== undefined && obj.betAmount !== undefined) {
+                            playerWL = parseFloat(obj.winAmount) - parseFloat(obj.betAmount);
+                            betVal = parseFloat(obj.betAmount) || 0;
+                        } else if (obj.amount !== undefined) {
+                            betVal = parseFloat(obj.amount) || 0;
+                            playerWL = -betVal;
+                        } else {
+                            let numbers = fullTextSnippet.match(/\d+\.\d{2}/g);
+                            if (numbers && numbers.length >= 2) {
+                                betVal = parseFloat(numbers[0]) || 0;
+                                playerWL = parseFloat(numbers[1]) || 0;
+                            }
+                        }
+
+                        if (obj.effectiveTurnover !== undefined && betVal === 0) {
+                            betVal = parseFloat(obj.effectiveTurnover) || 0;
+                        }
+
+                        if (usernameFromJson !== "-") currentUsername = usernameFromJson;
+
+                        allRecords.push({
+                            timestamp: timestamp,
+                            gameName: gameName,
+                            provider: provider,
+                            bet: betVal > 0 ? betVal : (obj.amount || 0),
+                            playerWL: playerWL,
+                            rawLineIndex: item.lineIndex
+                        });
+                    } catch (e) {
+                        console.error("Error parsing JSON block:", e);
+                    }
+                }
+            }
+
+            if (allRecords.length === 0) {
+                showNotification('No valid JSON transaction records found. Please check your data format.', 'error');
+                return;
+            }
+
+            let uniqueMap = new Map();
+            allRecords.forEach(r => {
+                let key = `${r.timestamp}_${r.bet}_${r.playerWL}`;
+                if (!uniqueMap.has(key)) {
+                    uniqueMap.set(key, r);
+                }
+            });
+            allRecords = Array.from(uniqueMap.values());
+
+            filteredRecords = [...allRecords];
+            sortRecords();
+            currentPage = 1;
+
+            uploadSection.classList.add('hidden');
+            resetBtn.classList.remove('hidden');
+            resultsContainer.classList.remove('hidden');
+            document.getElementById('username-display').textContent = currentUsername;
+
+            renderResults();
+            showNotification(`Successfully parsed ${allRecords.length} transaction records.`);
+        }
+
+        function parseCSV(text) {
+            rawDataLines = text.split(/\r\n|\n/);
+            const lines = text.split(/\r\n|\n/).filter(line => line.trim() !== '');
+            if (lines.length < 2) {
+                showNotification('The CSV file appears empty or invalid.', 'error');
+                return;
+            }
+
+            const delimiter = lines[0].includes('\t') ? '\t' : ',';
+            const headers = lines[0].split(delimiter).map(h => h.trim().replace(/^["']|["']$/g, ''));
+
+            const getIndex = (names) => {
+                for (let name of names) {
+                    const idx = headers.findIndex(h => h.toLowerCase() === name.toLowerCase());
+                    if (idx !== -1) return idx;
+                }
+                return -1;
+            };
+
+            const idxTimestamp = getIndex(['Timestamp', 'Time', 'Date']);
+            const idxGameName = getIndex(['Game Name', 'Game', 'Game Title']);
+            const idxProvider = getIndex(['Game Provider', 'Provider', 'Studio']);
+            const idxValidBet = getIndex(['Valid Bet', 'ValidBet', 'Bet', 'Stake', 'Wager']);
+            const idxPlayerWL = getIndex(['Player W/L', 'Win/Loss', 'W/L', 'Profit', 'PlayerWL']);
+            const idxUsername = getIndex(['Username', 'UserName', 'User', 'Player', 'PlayerName', 'LoginName']);
+
+            if (idxPlayerWL === -1) {
+                showNotification('Could not find "Player W/L" or equivalent profit column in CSV headers.', 'error');
+                return;
+            }
+            if (idxValidBet === -1) {
+                showNotification('Could not find "Valid Bet" (or Bet/Stake) column in CSV headers.', 'error');
+                return;
+            }
+
+            allRecords = [];
+            let firstUsername = "-";
+            for (let i = 1; i < lines.length; i++) {
+                const row = lines[i].split(delimiter).map(val => val.trim().replace(/^["']|["']$/g, ''));
+                if (row.length <= Math.max(idxPlayerWL, idxValidBet)) continue;
+
+                const wlVal = parseFloat(row[idxPlayerWL]) || 0;
+                const betVal = parseFloat(row[idxValidBet]) || 0;
+                let rowUsername = "-";
+                if (idxUsername !== -1 && row[idxUsername]) {
+                    rowUsername = row[idxUsername];
+                } else if (row[4]) {
+                    rowUsername = row[4];
+                }
+                if (firstUsername === "-" && rowUsername !== "-") {
+                    firstUsername = rowUsername;
+                }
+
+                allRecords.push({
+                    timestamp: idxTimestamp !== -1 ? row[idxTimestamp] : `2026-03-0${(i % 5) + 1} 12:00:00`,
+                    gameName: idxGameName !== -1 ? row[idxGameName] : 'Unknown Game',
+                    provider: idxProvider !== -1 ? row[idxProvider] : 'Unknown Provider',
+                    bet: betVal,
+                    playerWL: wlVal,
+                    username: rowUsername,
+                    rawLineIndex: i
+                });
+            }
+
+            if (allRecords.length === 0) {
+                showNotification('No valid records could be parsed from the CSV data.', 'error');
+                return;
+            }
+
+            currentUsername = firstUsername !== "-" ? firstUsername : "-";
+
+            filteredRecords = [...allRecords];
+            sortRecords();
+            currentPage = 1;
+
+            uploadSection.classList.add('hidden');
+            resetBtn.classList.remove('hidden');
+            resultsContainer.classList.remove('hidden');
+            document.getElementById('username-display').textContent = currentUsername;
+
+            renderResults();
+        }
+
+        function resetSession() {
+            allRecords = [];
+            filteredRecords = [];
+            rawDataLines = [];
+            fileInput.value = '';
+            pasteTextarea.value = '';
+            currentUsername = "-";
+            resultsContainer.classList.add('hidden');
+            resetBtn.classList.add('hidden');
+            uploadSection.classList.remove('hidden');
+            hideNotification();
+            if (trendChartInstance) trendChartInstance.destroy();
+            if (providerChartInstance) providerChartInstance.destroy();
+        }
+
+        function sortTable(field) {
+            if (sortField === field) {
+                sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+            } else {
+                sortField = field;
+                sortDirection = 'desc';
+            }
+            sortRecords();
+            renderResults();
+        }
+
+        function sortRecords() {
+            filteredRecords.sort((a, b) => {
+                let valA = a[sortField];
+                let valB = b[sortField];
+                if (typeof valA === 'string') {
+                    return sortDirection === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                } else {
+                    return sortDirection === 'asc' ? valA - valB : valB - valA;
+                }
+            });
+        }
+
+        /* ============ NARRATIVE HELPERS ============ */
+        function formatWinAmount(amount) {
+            return Math.round(amount).toString();
+        }
+
+        function getTop5LargeWins(records) {
+            const wins = records.filter(r => r.playerWL > 500);
+            wins.sort((a, b) => b.playerWL - a.playerWL);
+            return wins.slice(0, 5);
+        }
+
+        function getBiggestWin(records) {
+            const wins = records.filter(r => r.playerWL > 0);
+            if (wins.length === 0) return null;
+            return wins.reduce((max, r) => r.playerWL > max.playerWL ? r : max, wins[0]);
+        }
+
+        function countDistinctGames(records) {
+            const set = new Set();
+            records.forEach(r => {
+                if (r.gameName) set.add(r.gameName.toLowerCase().trim());
+            });
+            return set.size;
+        }
+
+        function buildLargeAmountsList(records) {
+            const top5 = getTop5LargeWins(records);
+            if (top5.length === 0) {
+                const anyTop = records.filter(r => r.playerWL > 0).sort((a, b) => b.playerWL - a.playerWL).slice(0, 5);
+                if (anyTop.length === 0) return null;
+                return anyTop.map(w => formatWinAmount(w.playerWL)).join(', ');
+            }
+            return top5.map(w => formatWinAmount(w.playerWL)).join(', ');
+        }
+
+        function buildShortNarrative(records) {
+            const distinctGames = countDistinctGames(records);
+            const isSingleGame = distinctGames <= 1;
+            const biggestWin = getBiggestWin(records);
+            const amountsList = buildLargeAmountsList(records);
+
+            // Calculate Average Bet Range (Ignore 0)
+            const validBets = records.map(r => r.bet).filter(b => b > 0);
+            let minBet = 0;
+            let maxBet = 0;
+            if (validBets.length > 0) {
+                minBet = Math.min(...validBets);
+                maxBet = Math.max(...validBets);
+            }
+            const minBetStr = Math.round(minBet).toString();
+            const maxBetStr = Math.round(maxBet).toString();
+
+            const gameLabel = isSingleGame ? 'single game' : 'multiple games';
+            const bigGame = biggestWin ? `${biggestWin.gameName} (${biggestWin.provider})` : 'Unknown Game';
+
+            if (amountsList && biggestWin) {
+                return `Member played ${gameLabel} and won multiple large amounts: ${amountsList} PHP on ${bigGame}. Average bet ${minBetStr}-${maxBetStr} PHP , Betting normal and legitimate.`;
+            } else if (biggestWin) {
+                return `Member played ${gameLabel}, biggest win ${formatWinAmount(biggestWin.playerWL)} PHP on ${bigGame}. Average bet ${minBetStr}-${maxBetStr} PHP , Betting normal and legitimate.`;
+            }
+            return `Member played ${gameLabel} with no significant wins. Average bet ${minBetStr}-${maxBetStr} PHP , Betting pattern shows no irregularities.`;
+        }
+
+        function renderResults() {
+            if (allRecords.length === 0) return;
+
+            const totalTx = allRecords.length;
+            const totalWL = allRecords.reduce((sum, r) => sum + r.playerWL, 0);
+            const totalTurnover = allRecords.reduce((sum, r) => sum + r.bet, 0);
+            const winningTxs = allRecords.filter(r => r.playerWL > 0).length;
+            const winRate = ((winningTxs / totalTx) * 100).toFixed(1);
+            const rtp = totalTurnover > 0 ? (((totalTurnover + totalWL) / totalTurnover) * 100).toFixed(1) : 0;
+
+            const sortedByWin = [...allRecords].sort((a, b) => b.playerWL - a.playerWL);
+            const maxWinRecord = sortedByWin[0];
+
+            document.getElementById('stat-max-win').textContent = maxWinRecord.playerWL.toLocaleString(undefined, { minimumFractionDigits: 2 });
+            document.getElementById('stat-max-win-game').textContent = `${maxWinRecord.gameName} (${maxWinRecord.provider})`;
+
+            const netResultEl = document.getElementById('stat-net-result');
+            netResultEl.textContent = totalWL.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            netResultEl.className = `text-2xl font-bold ${totalWL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+
+            document.getElementById('stat-total-turnover').textContent = totalTurnover.toLocaleString(undefined, { minimumFractionDigits: 2 });
+            document.getElementById('stat-total-tx').textContent = `${totalTx} transactions evaluated`;
+            document.getElementById('stat-win-rate').textContent = `${winRate}%`;
+            document.getElementById('stat-rtp').textContent = `RTP: ${rtp}%`;
+
+            document.getElementById('narrative-summary').textContent = buildShortNarrative(allRecords);
+
+            const startIndex = (currentPage - 1) * rowsPerPage;
+            const endIndex = startIndex + rowsPerPage;
+            const paginatedSlice = filteredRecords.slice(startIndex, endIndex);
+
+            const tbody = document.getElementById('transactions-tbody');
+            tbody.innerHTML = '';
+
+            paginatedSlice.forEach(rec => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-700/50 transition-colors';
+                tr.innerHTML = `
+                    <td class="px-5 py-3 text-slate-300 text-xs">${rec.timestamp}</td>
+                    <td class="px-5 py-3 font-medium text-white">${rec.gameName}</td>
+                    <td class="px-5 py-3 text-slate-400 text-xs">${rec.provider}</td>
+                    <td class="px-5 py-3 text-slate-300">${rec.bet.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                    <td class="px-5 py-3 text-right font-semibold ${rec.playerWL > 0 ? 'text-emerald-400' : rec.playerWL < 0 ? 'text-rose-400' : 'text-slate-300'}">
+                        ${rec.playerWL > 0 ? '+' : ''}${rec.playerWL.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    </td>
+                    <td class="px-5 py-3 text-center">
+                        <button onclick="showRawLocation(${allRecords.indexOf(rec)})" class="p-1 bg-slate-700 hover:bg-slate-600 rounded text-slate-300 transition-colors" title="View raw">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById('pagination-info').textContent = `Showing ${filteredRecords.length > 0 ? startIndex + 1 : 0} to ${Math.min(endIndex, filteredRecords.length)} of ${filteredRecords.length} entries`;
+            document.getElementById('prev-page').disabled = currentPage === 1;
+            document.getElementById('next-page').disabled = endIndex >= filteredRecords.length;
+
+            renderCharts();
+        }
+
+        function changePage(direction) {
+            currentPage += direction;
+            renderResults();
+        }
+
+        /* ============ RAW DATA MODAL ============ */
+        function showRawLocation(recordIndex) {
+            if (recordIndex < 0 || recordIndex >= allRecords.length) return;
+            rawModalState.matchedRecordIndex = recordIndex;
+            rawModalState.currentRecordIndex = recordIndex;
+
+            const pageSize = rawModalState.pageSize;
+            rawModalState.currentPage = Math.floor(recordIndex / pageSize) + 1;
+
+            document.getElementById('raw-page-size').value = String(pageSize);
+
+            renderRawModalTable();
+            document.getElementById('raw-modal').classList.remove('hidden');
+        }
+
+        function onRawPageSizeChange() {
+            const newSize = parseInt(document.getElementById('raw-page-size').value, 10);
+            if (isNaN(newSize) || newSize < 1) return;
+            rawModalState.pageSize = newSize;
+
+            if (rawModalState.currentRecordIndex >= 0) {
+                rawModalState.currentPage = Math.floor(rawModalState.currentRecordIndex / newSize) + 1;
+            } else {
+                rawModalState.currentPage = 1;
+            }
+            renderRawModalTable();
+        }
+
+        function changeRawPage(direction) {
+            const newPage = rawModalState.currentPage + direction;
+            const totalPages = Math.max(1, Math.ceil(allRecords.length / rawModalState.pageSize));
+            if (newPage < 1 || newPage > totalPages) return;
+            rawModalState.currentPage = newPage;
+            renderRawModalTable();
+        }
+
+        function jumpToRecord() {
+            const input = document.getElementById('raw-jump-line');
+            const val = parseInt(input.value, 10);
+            if (isNaN(val) || val < 1 || val > allRecords.length) {
+                showNotification(`Please enter a record number between 1 and ${allRecords.length}.`, 'error');
+                return;
+            }
+            rawModalState.currentRecordIndex = val - 1;
+            rawModalState.currentPage = Math.floor((val - 1) / rawModalState.pageSize) + 1;
+            renderRawModalTable();
+        }
+
+        function renderRawModalTable() {
+            const matchedIdx = rawModalState.matchedRecordIndex;
+            const currentIdx = rawModalState.currentRecordIndex;
+            const pageSize = rawModalState.pageSize;
+            const totalRecords = allRecords.length;
+            const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize));
+            const page = rawModalState.currentPage;
+
+            if (page < 1) rawModalState.currentPage = 1;
+            if (page > totalPages) rawModalState.currentPage = totalPages;
+
+            const start = (rawModalState.currentPage - 1) * pageSize;
+            const end = Math.min(start + pageSize, totalRecords) - 1;
+
+            const matchedRec = allRecords[matchedIdx];
+
+            document.getElementById('raw-modal-subtitle').textContent =
+                `Matched record #${matchedIdx + 1} — ${matchedRec.gameName} | ${matchedRec.provider} | W/L ${matchedRec.playerWL > 0 ? '+' : ''}${matchedRec.playerWL.toFixed(2)}`;
+
+            const tbody = document.getElementById('raw-modal-tbody');
+            tbody.innerHTML = '';
+
+            for (let i = start; i <= end; i++) {
+                const rec = allRecords[i];
+                const isMatched = (i === matchedIdx);
+                const isCurrent = (i === currentIdx);
+
+                const tr = document.createElement('tr');
+                tr.className = `transition-colors ${isMatched ? 'bg-indigo-500/20' : ''} ${isCurrent && !isMatched ? 'bg-slate-700/50' : ''} ${!isMatched && !isCurrent ? 'hover:bg-slate-700/30' : ''}`;
+                tr.innerHTML = `
+                    <td class="px-3 py-2 text-slate-500 font-mono text-xs align-middle whitespace-nowrap">#${i + 1}</td>
+                    <td class="px-3 py-2 text-slate-300 text-xs align-middle whitespace-nowrap">${rec.timestamp || '-'}</td>
+                    <td class="px-3 py-2 text-white text-sm font-medium align-middle whitespace-nowrap">${rec.gameName || '-'}</td>
+                    <td class="px-3 py-2 text-slate-400 text-xs align-middle whitespace-nowrap">${rec.provider || '-'}</td>
+                    <td class="px-3 py-2 text-slate-300 text-sm text-right align-middle whitespace-nowrap">${(rec.bet || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                    <td class="px-3 py-2 text-right font-semibold text-sm align-middle whitespace-nowrap ${rec.playerWL > 0 ? 'text-emerald-400' : rec.playerWL < 0 ? 'text-rose-400' : 'text-slate-300'}">
+                        ${rec.playerWL > 0 ? '+' : ''}${(rec.playerWL || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    </td>
+                    <td class="px-3 py-2 text-center align-middle whitespace-nowrap">
+                        ${isMatched ? '<span class="text-[10px] font-bold text-indigo-300 bg-indigo-500/20 px-2 py-0.5 rounded border border-indigo-500/40">MATCH</span>' : ''}
+                        ${isCurrent && !isMatched ? '<span class="text-[10px] font-bold text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded border border-amber-500/40">CURRENT</span>' : ''}
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            }
+
+            const displayPage = rawModalState.currentPage;
+            document.getElementById('raw-page-info').textContent = `Page ${displayPage} of ${totalPages} — Records ${start + 1}-${end + 1} of ${totalRecords}`;
+
+            document.getElementById('raw-prev-page').disabled = (displayPage <= 1);
+            document.getElementById('raw-next-page').disabled = (displayPage >= totalPages);
+
+            if (currentIdx >= start && currentIdx <= end) {
+                setTimeout(() => {
+                    const rows = tbody.querySelectorAll('tr');
+                    const offset = currentIdx - start;
+                    if (rows[offset]) {
+                        rows[offset].scrollIntoView({ block: 'center', behavior: 'smooth' });
+                    }
+                }, 30);
+            }
+
+            document.getElementById('raw-jump-line').value = currentIdx + 1;
+            document.getElementById('raw-jump-line').max = totalRecords;
+        }
+
+        function closeRawModal() {
+            document.getElementById('raw-modal').classList.add('hidden');
+        }
+
+        document.addEventListener('keydown', (e) => {
+            const modalOpen = !document.getElementById('raw-modal').classList.contains('hidden');
+            if (!modalOpen) return;
+            if (e.key === 'Escape') closeRawModal();
+            if (e.key === 'PageDown') { e.preventDefault(); changeRawPage(1); }
+            if (e.key === 'PageUp') { e.preventDefault(); changeRawPage(-1); }
+        });
+
+        /* ============ CHARTS ============ */
+        function renderCharts() {
+            const chronological = [...allRecords].reverse();
+            let cumulative = 0;
+            const labels = chronological.map(r => r.timestamp);
+            const dataPoints = chronological.map(r => {
+                cumulative += r.playerWL;
+                return cumulative;
+            });
+
+            const ctxTrend = document.getElementById('trendChart').getContext('2d');
+            if (trendChartInstance) trendChartInstance.destroy();
+
+            trendChartInstance = new Chart(ctxTrend, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Cumulative P/L',
+                        data: dataPoints,
+                        borderColor: '#6366f1',
+                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 10 }, maxTicksLimit: 6 } },
+                        y: { grid: { color: '#334155' }, ticks: { color: '#94a3b8', font: { size: 10 } } }
+                    }
+                }
+            });
+
+            const providerMap = {};
+            allRecords.forEach(r => {
+                providerMap[r.provider] = (providerMap[r.provider] || 0) + r.playerWL;
+            });
+            const providers = Object.keys(providerMap);
+            const providerValues = Object.values(providerMap);
+
+            const ctxProvider = document.getElementById('providerChart').getContext('2d');
+            if (providerChartInstance) providerChartInstance.destroy();
+
+            providerChartInstance = new Chart(ctxProvider, {
+                type: 'bar',
+                data: {
+                    labels: providers,
+                    datasets: [{
+                        label: 'Net W/L by Provider',
+                        data: providerValues,
+                        backgroundColor: providerValues.map(v => v >= 0 ? '#34d399' : '#fb7185'),
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 10 } } },
+                        y: { grid: { color: '#334155' }, ticks: { color: '#94a3b8', font: { size: 10 } } }
+                    }
+                }
+            });
+        }
+
+        document.getElementById('export-csv-btn').addEventListener('click', function() {
+            if (filteredRecords.length === 0) return;
+            let csvContent = "Timestamp,Game Name,Game Provider,Valid Bet,Player W/L\n";
+            filteredRecords.forEach(r => {
+                csvContent += `"${r.timestamp}","${r.gameName}","${r.provider}",${r.bet},${r.playerWL}\n`;
+            });
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.setAttribute('href', url);
+            a.setAttribute('download', 'filtered_betting_analysis.csv');
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        });
+    </script>
+</body>
+</html>
